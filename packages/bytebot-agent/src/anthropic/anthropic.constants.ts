@@ -16,3 +16,17 @@ export const ANTHROPIC_MODELS: BytebotAgentModel[] = [
 ];
 
 export const DEFAULT_MODEL = ANTHROPIC_MODELS[0];
+
+const azureAnthropicDeployment = process.env.AZURE_ANTHROPIC_DEPLOYMENT;
+
+export const AZURE_ANTHROPIC_MODELS: BytebotAgentModel[] =
+  azureAnthropicDeployment
+    ? [
+        {
+          provider: 'anthropic',
+          name: azureAnthropicDeployment,
+          title: `Azure: ${azureAnthropicDeployment}`,
+          contextWindow: 200000,
+        },
+      ]
+    : [];

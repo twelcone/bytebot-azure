@@ -15,20 +15,30 @@ import { CreateTaskDto } from './dto/create-task.dto';
 import { Message, Task } from '@prisma/client';
 import { AddTaskMessageDto } from './dto/add-task-message.dto';
 import { MessagesService } from '../messages/messages.service';
-import { ANTHROPIC_MODELS } from '../anthropic/anthropic.constants';
-import { OPENAI_MODELS } from '../openai/openai.constants';
+import {
+  ANTHROPIC_MODELS,
+  AZURE_ANTHROPIC_MODELS,
+} from '../anthropic/anthropic.constants';
+import {
+  OPENAI_MODELS,
+  AZURE_OPENAI_MODELS,
+} from '../openai/openai.constants';
 import { GOOGLE_MODELS } from '../google/google.constants';
 import { BytebotAgentModel } from 'src/agent/agent.types';
 
 const geminiApiKey = process.env.GEMINI_API_KEY;
 const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
 const openaiApiKey = process.env.OPENAI_API_KEY;
+const azureOpenaiEndpoint = process.env.AZURE_OPENAI_ENDPOINT;
+const azureAnthropicEndpoint = process.env.AZURE_ANTHROPIC_ENDPOINT;
 
 const proxyUrl = process.env.BYTEBOT_LLM_PROXY_URL;
 
 const models = [
   ...(anthropicApiKey ? ANTHROPIC_MODELS : []),
+  ...(azureAnthropicEndpoint ? AZURE_ANTHROPIC_MODELS : []),
   ...(openaiApiKey ? OPENAI_MODELS : []),
+  ...(azureOpenaiEndpoint ? AZURE_OPENAI_MODELS : []),
   ...(geminiApiKey ? GOOGLE_MODELS : []),
 ];
 

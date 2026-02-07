@@ -16,3 +16,16 @@ export const OPENAI_MODELS: BytebotAgentModel[] = [
 ];
 
 export const DEFAULT_MODEL = OPENAI_MODELS[0];
+
+const azureDeployment = process.env.AZURE_OPENAI_DEPLOYMENT;
+
+export const AZURE_OPENAI_MODELS: BytebotAgentModel[] = azureDeployment
+  ? [
+      {
+        provider: 'openai',
+        name: azureDeployment,
+        title: `Azure: ${azureDeployment}`,
+        contextWindow: 128000,
+      },
+    ]
+  : [];

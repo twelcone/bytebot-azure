@@ -27,17 +27,41 @@ export class OpenAIService implements BytebotAgentService {
   private readonly logger = new Logger(OpenAIService.name);
 
   constructor(private readonly configService: ConfigService) {
-    const apiKey = this.configService.get<string>('OPENAI_API_KEY');
+    const azureEndpoint = this.configService.get<string>(
+      'AZURE_OPENAI_ENDPOINT',
+    );
 
-    if (!apiKey) {
-      this.logger.warn(
-        'OPENAI_API_KEY is not set. OpenAIService will not work properly.',
+    if (azureEndpoint) {
+      const azureApiKey = this.configService.get<string>(
+        'AZURE_OPENAI_API_KEY',
       );
-    }
 
-    this.openai = new OpenAI({
-      apiKey: apiKey || 'dummy-key-for-initialization',
-    });
+      if (!azureApiKey) {
+        this.logger.warn(
+          'AZURE_OPENAI_API_KEY is not set. Azure OpenAI will not work properly.',
+        );
+      }
+
+      this.openai = new OpenAI({
+        baseURL: azureEndpoint,
+        apiKey: azureApiKey || 'dummy-key-for-initialization',
+      });
+      this.logger.log(
+        `OpenAIService configured for Azure OpenAI (endpoint: ${azureEndpoint})`,
+      );
+    } else {
+      const apiKey = this.configService.get<string>('OPENAI_API_KEY');
+
+      if (!apiKey) {
+        this.logger.warn(
+          'OPENAI_API_KEY is not set. OpenAIService will not work properly.',
+        );
+      }
+
+      this.openai = new OpenAI({
+        apiKey: apiKey || 'dummy-key-for-initialization',
+      });
+    }
   }
 
   async generateMessage(

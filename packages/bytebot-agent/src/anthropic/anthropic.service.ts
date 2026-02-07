@@ -26,17 +26,41 @@ export class AnthropicService implements BytebotAgentService {
   private readonly logger = new Logger(AnthropicService.name);
 
   constructor(private readonly configService: ConfigService) {
-    const apiKey = this.configService.get<string>('ANTHROPIC_API_KEY');
+    const azureEndpoint = this.configService.get<string>(
+      'AZURE_ANTHROPIC_ENDPOINT',
+    );
 
-    if (!apiKey) {
-      this.logger.warn(
-        'ANTHROPIC_API_KEY is not set. AnthropicService will not work properly.',
+    if (azureEndpoint) {
+      const azureApiKey = this.configService.get<string>(
+        'AZURE_ANTHROPIC_API_KEY',
       );
-    }
 
-    this.anthropic = new Anthropic({
-      apiKey: apiKey || 'dummy-key-for-initialization',
-    });
+      if (!azureApiKey) {
+        this.logger.warn(
+          'AZURE_ANTHROPIC_API_KEY is not set. Azure Anthropic will not work properly.',
+        );
+      }
+
+      this.anthropic = new Anthropic({
+        baseURL: azureEndpoint,
+        apiKey: azureApiKey || 'dummy-key-for-initialization',
+      });
+      this.logger.log(
+        `AnthropicService configured for Azure AI Foundry (endpoint: ${azureEndpoint})`,
+      );
+    } else {
+      const apiKey = this.configService.get<string>('ANTHROPIC_API_KEY');
+
+      if (!apiKey) {
+        this.logger.warn(
+          'ANTHROPIC_API_KEY is not set. AnthropicService will not work properly.',
+        );
+      }
+
+      this.anthropic = new Anthropic({
+        apiKey: apiKey || 'dummy-key-for-initialization',
+      });
+    }
   }
 
   async generateMessage(
