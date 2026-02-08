@@ -197,3 +197,9 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
 # QEMU
 *.qcow2
+
+__pycache__/
+*/__pycache__/
+
+# OSWorld benchmark outputs
+osworld-bench/osworld-logs/
