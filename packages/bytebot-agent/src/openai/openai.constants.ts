@@ -37,7 +37,7 @@ const vllmModelNames = process.env.VLLM_MODEL_NAMES?.split(',') || [];
 export const VLLM_MODELS: BytebotAgentModel[] =
   vllmBaseUrl && vllmModelNames.length > 0
     ? vllmModelNames.map((modelName) => ({
-        provider: 'proxy' as const,  // Use proxy provider for vLLM
+        provider: 'openai' as const,  // Use openai provider for vLLM (OpenAI-compatible API)
         name: modelName.trim(),
         title: `vLLM: ${modelName.trim()}`,
         contextWindow: parseInt(process.env.VLLM_CONTEXT_WINDOW || '32768'),

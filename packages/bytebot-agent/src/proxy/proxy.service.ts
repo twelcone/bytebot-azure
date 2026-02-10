@@ -3,7 +3,6 @@ import { ConfigService } from '@nestjs/config';
 import OpenAI, { APIUserAbortError } from 'openai';
 import {
   ChatCompletionMessageParam,
-  ChatCompletionContentPart,
 } from 'openai/resources/chat/completions';
 import {
   MessageContentBlock,
@@ -15,7 +14,6 @@ import {
   isUserActionContentBlock,
   isComputerToolUseContentBlock,
   isImageContentBlock,
-  ThinkingContentBlock,
 } from '@bytebot/shared';
 import { Message, Role } from '@prisma/client';
 import { proxyTools } from './proxy.tools';
@@ -31,44 +29,19 @@ export class ProxyService implements BytebotAgentService {
   private readonly logger = new Logger(ProxyService.name);
 
   constructor(private readonly configService: ConfigService) {
-    // Support both LLM proxy and vLLM endpoints
     const proxyUrl = this.configService.get<string>('BYTEBOT_LLM_PROXY_URL');
-    const vllmBaseUrl = this.configService.get<string>('VLLM_BASE_URL');
-    const vllmApiKey = this.configService.get<string>('VLLM_API_KEY');
 
-    // Prefer vLLM if configured, otherwise use proxy
-    const baseURL = vllmBaseUrl ? `${vllmBaseUrl}/v1` : proxyUrl;
-
-    if (!baseURL) {
+    if (!proxyUrl) {
       this.logger.warn(
-        'Neither VLLM_BASE_URL nor BYTEBOT_LLM_PROXY_URL is set. ProxyService will not work properly.',
+        'BYTEBOT_LLM_PROXY_URL is not set. ProxyService will not work properly.',
       );
     }
 
-    // Initialize OpenAI client with proxy/vLLM configuration
-    // For vLLM, handle special "EMPTY" value or use the provided key
-    if (vllmBaseUrl) {
-      // If API key is "EMPTY", use that as-is (some vLLM setups recognize this)
-      // Otherwise use the provided key or default to "EMPTY"
-      const apiKey = vllmApiKey === 'EMPTY' ? 'EMPTY' : (vllmApiKey || 'EMPTY');
-      this.openai = new OpenAI({
-        apiKey: apiKey,
-        baseURL,
-      });
-      this.logger.log(`ProxyService configured for vLLM at: ${vllmBaseUrl} (API key: ${apiKey ? 'configured' : 'none'})`);
-    } else {
-      this.openai = new OpenAI({
-        apiKey: 'dummy-key-for-proxy',
-        baseURL: proxyUrl,
-      });
-      this.logger.log(`ProxyService configured for LLM proxy at: ${proxyUrl}`);
-    }
-
-    if (vllmBaseUrl) {
-      this.logger.log(`ProxyService configured for vLLM at: ${vllmBaseUrl}`);
-    } else if (proxyUrl) {
-      this.logger.log(`ProxyService configured for LLM proxy at: ${proxyUrl}`);
-    }
+    // Initialize OpenAI client with proxy configuration
+    this.openai = new OpenAI({
+      apiKey: 'dummy-key-for-proxy',
+      baseURL: proxyUrl,
+    });
   }
 
   /**
@@ -93,7 +66,6 @@ export class ProxyService implements BytebotAgentService {
         messages: chatMessages,
         max_tokens: 8192,
         ...(useTools && { tools: proxyTools }),
-        reasoning_effort: 'high',
       };
 
       // Make the API call
@@ -228,16 +200,6 @@ export class ProxyService implements BytebotAgentService {
               });
               break;
             }
-            case MessageContentType.Thinking: {
-              const thinkingBlock = block as ThinkingContentBlock;
-              const message: ChatCompletionMessageParam = {
-                role: 'assistant',
-                content: null,
-              };
-              message['reasoning_content'] = thinkingBlock.thinking;
-              chatMessages.push(message);
-              break;
-            }
             case MessageContentType.ToolResult: {
               const toolResultBlock = block as ToolResultContentBlock;
 
@@ -305,14 +267,6 @@ export class ProxyService implements BytebotAgentService {
         type: MessageContentType.Text,
         text: message.content,
       } as TextContentBlock);
-    }
-
-    if (message['reasoning_content']) {
-      contentBlocks.push({
-        type: MessageContentType.Thinking,
-        thinking: message['reasoning_content'],
-        signature: message['reasoning_content'],
-      } as ThinkingContentBlock);
     }
 
     // Handle tool calls
