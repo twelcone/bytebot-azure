@@ -38,7 +38,7 @@ export class ProxyService implements BytebotAgentService {
 
     // Prefer vLLM if configured, otherwise use proxy
     const baseURL = vllmBaseUrl ? `${vllmBaseUrl}/v1` : proxyUrl;
-    const apiKey = vllmBaseUrl ? (vllmApiKey || 'dummy-key') : 'dummy-key-for-proxy';
+    const apiKey = vllmBaseUrl ? vllmApiKey : 'dummy-key-for-proxy';
 
     if (!baseURL) {
       this.logger.warn(
@@ -48,8 +48,10 @@ export class ProxyService implements BytebotAgentService {
 
     // Initialize OpenAI client with proxy/vLLM configuration
     this.openai = new OpenAI({
-      apiKey,
+      apiKey: apiKey || 'sk-no-key-required',  // OpenAI client requires some value
       baseURL,
+      defaultHeaders: vllmBaseUrl && !apiKey ? {} : undefined,  // Don't send auth header for vLLM without key
+      fetch: vllmBaseUrl && !apiKey ? this.createFetchWithoutAuth() : undefined,
     });
 
     if (vllmBaseUrl) {
@@ -57,6 +59,20 @@ export class ProxyService implements BytebotAgentService {
     } else if (proxyUrl) {
       this.logger.log(`ProxyService configured for LLM proxy at: ${proxyUrl}`);
     }
+  }
+
+  /**
+   * Create a custom fetch that strips Authorization header for vLLM without auth
+   */
+  private createFetchWithoutAuth() {
+    return async (url: RequestInfo, init?: RequestInit) => {
+      if (init?.headers) {
+        const headers = new Headers(init.headers as any);
+        headers.delete('Authorization');
+        init.headers = headers;
+      }
+      return fetch(url, init);
+    };
   }
 
   /**
