@@ -43,6 +43,7 @@ The benchmark consists of two scripts:
 - Python 3.10+
 - A running Bytebot stack (agent on port 9991, bytebotd on port 9990, PostgreSQL)
 - The OSWorld repo cloned at `./OSWorld`
+- (Optional) vLLM server running for using vLLM models
 
 ## Setup
 
@@ -50,6 +51,26 @@ The benchmark consists of two scripts:
 cd osworld-bench
 pip install -r requirements.txt
 ```
+
+### Configuring vLLM (Optional)
+
+To use vLLM models with the benchmark, configure the following environment variables in your `.env` file:
+
+```bash
+# vLLM server endpoint
+VLLM_BASE_URL=http://localhost:8000
+
+# Optional API key if authentication is enabled
+VLLM_API_KEY=your-api-key
+
+# List of model names available on your vLLM server
+VLLM_MODEL_NAMES=meta-llama/Meta-Llama-3.1-70B-Instruct,mistralai/Mistral-7B-Instruct-v0.3
+
+# Optional: Context window size (default: 32768)
+VLLM_CONTEXT_WINDOW=131072
+```
+
+When configured, vLLM models will be available through the proxy service with "vLLM:" prefix in the UI.
 
 ## Usage
 
@@ -89,6 +110,9 @@ python3 run_benchmark.py --domain chrome --max-tasks 10
 
 # Run with explicit model
 python3 run_benchmark.py --model '{"provider":"anthropic","name":"claude-sonnet-4-20250514","title":"Claude Sonnet 4"}'
+
+# Run with vLLM model (requires VLLM_BASE_URL and VLLM_MODEL_NAMES configured)
+python3 run_benchmark.py --model '{"provider":"proxy","name":"meta-llama/Meta-Llama-3.1-70B-Instruct","title":"vLLM: Llama 3.1 70B"}'
 
 # Resume a previous run (skip tasks with existing results)
 python3 run_benchmark.py --resume

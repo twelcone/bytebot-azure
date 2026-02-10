@@ -22,6 +22,7 @@ import {
 import {
   OPENAI_MODELS,
   AZURE_OPENAI_MODELS,
+  VLLM_MODELS,
 } from '../openai/openai.constants';
 import { GOOGLE_MODELS } from '../google/google.constants';
 import { BytebotAgentModel } from 'src/agent/agent.types';
@@ -40,6 +41,7 @@ const models = [
   ...(openaiApiKey ? OPENAI_MODELS : []),
   ...(azureOpenaiEndpoint ? AZURE_OPENAI_MODELS : []),
   ...(geminiApiKey ? GOOGLE_MODELS : []),
+  ...VLLM_MODELS,  // Include vLLM models if configured
 ];
 
 @Controller('tasks')

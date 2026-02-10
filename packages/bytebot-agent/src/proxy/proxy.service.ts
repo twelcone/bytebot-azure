@@ -31,19 +31,32 @@ export class ProxyService implements BytebotAgentService {
   private readonly logger = new Logger(ProxyService.name);
 
   constructor(private readonly configService: ConfigService) {
+    // Support both LLM proxy and vLLM endpoints
     const proxyUrl = this.configService.get<string>('BYTEBOT_LLM_PROXY_URL');
+    const vllmBaseUrl = this.configService.get<string>('VLLM_BASE_URL');
+    const vllmApiKey = this.configService.get<string>('VLLM_API_KEY');
 
-    if (!proxyUrl) {
+    // Prefer vLLM if configured, otherwise use proxy
+    const baseURL = vllmBaseUrl ? `${vllmBaseUrl}/v1` : proxyUrl;
+    const apiKey = vllmBaseUrl ? (vllmApiKey || 'dummy-key') : 'dummy-key-for-proxy';
+
+    if (!baseURL) {
       this.logger.warn(
-        'BYTEBOT_LLM_PROXY_URL is not set. ProxyService will not work properly.',
+        'Neither VLLM_BASE_URL nor BYTEBOT_LLM_PROXY_URL is set. ProxyService will not work properly.',
       );
     }
 
-    // Initialize OpenAI client with proxy configuration
+    // Initialize OpenAI client with proxy/vLLM configuration
     this.openai = new OpenAI({
-      apiKey: 'dummy-key-for-proxy',
-      baseURL: proxyUrl,
+      apiKey,
+      baseURL,
     });
+
+    if (vllmBaseUrl) {
+      this.logger.log(`ProxyService configured for vLLM at: ${vllmBaseUrl}`);
+    } else if (proxyUrl) {
+      this.logger.log(`ProxyService configured for LLM proxy at: ${proxyUrl}`);
+    }
   }
 
   /**

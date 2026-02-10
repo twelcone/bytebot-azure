@@ -6,7 +6,14 @@ captures screenshots and step data, and produces structured logs with aggregate
 statistics.
 
 Usage:
+    # Using Anthropic models
     python run_benchmark.py --model '{"provider":"anthropic","name":"claude-sonnet-4-20250514","title":"Claude Sonnet 4"}'
+
+    # Using vLLM models (requires VLLM_BASE_URL configured)
+    python run_benchmark.py --model '{"provider":"proxy","name":"meta-llama/Meta-Llama-3.1-70B-Instruct","title":"vLLM: Llama 3.1 70B"}'
+    python run_benchmark.py --vllm-model "meta-llama/Meta-Llama-3.1-70B-Instruct"
+
+    # Other examples
     python run_benchmark.py --max-tasks 5 --domain chrome --model '...'
     python run_benchmark.py --resume --model '...'
 """
@@ -690,6 +697,11 @@ def parse_args() -> argparse.Namespace:
         help='Model config as JSON string. If omitted, auto-detects from API (uses first available model, same as web UI).',
     )
     parser.add_argument(
+        "--vllm-model",
+        default=None,
+        help='Shorthand for vLLM model name (e.g., "meta-llama/Meta-Llama-3.1-70B-Instruct"). Alternative to --model.',
+    )
+    parser.add_argument(
         "--resume",
         action="store_true",
         help="Skip tasks that already have a result.json in output-dir",
@@ -700,6 +712,11 @@ def parse_args() -> argparse.Namespace:
 def main():
     args = parse_args()
 
+    # Validate mutually exclusive arguments
+    if args.model and args.vllm_model:
+        logger.error("Cannot use both --model and --vllm-model. Choose one.")
+        sys.exit(1)
+
     # Initialize client and check connectivity first (needed for model auto-detection)
     client = BytebotClient(args.api_url)
     if not client.health_check():
@@ -707,8 +724,16 @@ def main():
         sys.exit(1)
     logger.info("Connected to bytebot API at %s", args.api_url)
 
-    # Resolve model: explicit JSON or auto-detect from API
-    if args.model:
+    # Resolve model: vllm shorthand, explicit JSON, or auto-detect from API
+    if args.vllm_model:
+        # Convert vLLM model name to full model config
+        model = {
+            "provider": "proxy",
+            "name": args.vllm_model,
+            "title": f"vLLM: {args.vllm_model.split('/')[-1]}",
+        }
+        logger.info("Using vLLM model: %s", args.vllm_model)
+    elif args.model:
         try:
             model = json.loads(args.model)
         except json.JSONDecodeError as exc:

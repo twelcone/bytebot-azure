@@ -90,12 +90,18 @@ PostgreSQL with these main models:
 
 Required:
 - `DATABASE_URL` - PostgreSQL connection string
-- At least one AI provider key: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, or `GEMINI_API_KEY`
+- At least one AI provider key: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, or vLLM configuration
 
 Service URLs (for local dev):
 - `BYTEBOT_DESKTOP_BASE_URL=http://localhost:9990`
 - `BYTEBOT_AGENT_BASE_URL=http://localhost:9991`
 - `BYTEBOT_DESKTOP_VNC_URL=http://localhost:9990/websockify`
+
+vLLM Support (optional):
+- `VLLM_BASE_URL` - vLLM server endpoint (e.g., http://localhost:8000)
+- `VLLM_API_KEY` - Optional API key for vLLM authentication
+- `VLLM_MODEL_NAMES` - Comma-separated list of available models
+- `VLLM_CONTEXT_WINDOW` - Context window size (default: 32768)
 
 ## Code Patterns
 
