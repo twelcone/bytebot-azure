@@ -8,13 +8,14 @@ import {
   ToolUseContentBlock,
   ToolResultContentBlock,
   ThinkingContentBlock,
+  ImageContentBlock,
   isUserActionContentBlock,
   isComputerToolUseContentBlock,
   isImageContentBlock,
 } from '@bytebot/shared';
 import { DEFAULT_MODEL } from './openai.constants';
 import { Message, Role } from '@prisma/client';
-import { openaiTools } from './openai.tools';
+import { openaiTools, chatCompletionTools } from './openai.tools';
 import {
   BytebotAgentService,
   BytebotAgentInterrupt,
@@ -88,35 +89,60 @@ export class OpenAIService implements BytebotAgentService {
     useTools: boolean = true,
     signal?: AbortSignal,
   ): Promise<BytebotAgentResponse> {
+    const isVLLM = !!this.configService.get<string>('VLLM_BASE_URL');
     const isReasoning = model.startsWith('o');
 
     try {
-      // Both OpenAI and vLLM support responses.create API now!
-      const openaiMessages = this.formatMessagesForOpenAI(messages);
+      if (isVLLM) {
+        // vLLM uses chat.completions API for better tool support
+        const chatMessages = this.formatMessagesForChatCompletion(systemPrompt, messages);
 
-      const maxTokens = 8192;
-      const response = await this.openai.responses.create(
-        {
-          model,
-          max_output_tokens: maxTokens,
-          input: openaiMessages,
-          instructions: systemPrompt,
-          tools: useTools ? openaiTools : [],
-          reasoning: isReasoning ? { effort: 'medium' } : null,
-          store: false,
-          include: isReasoning ? ['reasoning.encrypted_content'] : [],
-        },
-        { signal },
-      );
+        const response = await this.openai.chat.completions.create(
+          {
+            model,
+            messages: chatMessages,
+            max_tokens: 8192,
+            ...(useTools && { tools: chatCompletionTools }),
+          },
+          { signal },
+        );
 
-      return {
-        contentBlocks: this.formatOpenAIResponse(response.output),
-        tokenUsage: {
-          inputTokens: response.usage?.input_tokens || 0,
-          outputTokens: response.usage?.output_tokens || 0,
-          totalTokens: response.usage?.total_tokens || 0,
-        },
-      };
+        return {
+          contentBlocks: this.formatChatCompletionResponse(response),
+          tokenUsage: {
+            inputTokens: response.usage?.prompt_tokens || 0,
+            outputTokens: response.usage?.completion_tokens || 0,
+            totalTokens: response.usage?.total_tokens || 0,
+          },
+        };
+      } else {
+        // OpenAI uses responses.create API
+        const openaiMessages = this.formatMessagesForOpenAI(messages);
+
+        const maxTokens = 8192;
+        const response = await this.openai.responses.create(
+          {
+            model,
+            max_output_tokens: maxTokens,
+            input: openaiMessages,
+            instructions: systemPrompt,
+            tools: useTools ? openaiTools : [],
+            reasoning: isReasoning ? { effort: 'medium' } : null,
+            store: false,
+            include: isReasoning ? ['reasoning.encrypted_content'] : [],
+          },
+          { signal },
+        );
+
+        return {
+          contentBlocks: this.formatOpenAIResponse(response.output),
+          tokenUsage: {
+            inputTokens: response.usage?.input_tokens || 0,
+            outputTokens: response.usage?.output_tokens || 0,
+            totalTokens: response.usage?.total_tokens || 0,
+          },
+        };
+      }
     } catch (error: any) {
       console.log('error', error);
       console.log('error name', error.name);
@@ -359,6 +385,135 @@ export class OpenAIService implements BytebotAgentService {
             type: MessageContentType.Text,
             text: JSON.stringify(item),
           } as TextContentBlock);
+      }
+    }
+
+    return contentBlocks;
+  }
+
+  /**
+   * Format messages for vLLM Chat Completions API
+   */
+  private formatMessagesForChatCompletion(
+    systemPrompt: string,
+    messages: Message[],
+  ): any[] {
+    const chatMessages: any[] = [];
+
+    // Add system message
+    chatMessages.push({
+      role: 'system',
+      content: systemPrompt,
+    });
+
+    // Process each message
+    for (const message of messages) {
+      const messageContentBlocks = message.content as MessageContentBlock[];
+
+      for (const block of messageContentBlocks) {
+        switch (block.type) {
+          case MessageContentType.Text: {
+            chatMessages.push({
+              role: message.role === Role.USER ? 'user' : 'assistant',
+              content: block.text,
+            });
+            break;
+          }
+          case MessageContentType.Image: {
+            const imageBlock = block as ImageContentBlock;
+            chatMessages.push({
+              role: 'user',
+              content: [
+                {
+                  type: 'image_url',
+                  image_url: {
+                    url: `data:${imageBlock.source.media_type};base64,${imageBlock.source.data}`,
+                    detail: 'high',
+                  },
+                },
+              ],
+            });
+            break;
+          }
+          case MessageContentType.ToolUse: {
+            const toolBlock = block as ToolUseContentBlock;
+            chatMessages.push({
+              role: 'assistant',
+              tool_calls: [
+                {
+                  id: toolBlock.id,
+                  type: 'function',
+                  function: {
+                    name: toolBlock.name,
+                    arguments: JSON.stringify(toolBlock.input),
+                  },
+                },
+              ],
+            });
+            break;
+          }
+          case MessageContentType.ToolResult: {
+            const toolResultBlock = block as ToolResultContentBlock;
+            toolResultBlock.content.forEach((content) => {
+              if (content.type === MessageContentType.Text) {
+                chatMessages.push({
+                  role: 'tool',
+                  tool_call_id: toolResultBlock.tool_use_id,
+                  content: content.text,
+                });
+              }
+            });
+            break;
+          }
+        }
+      }
+    }
+
+    return chatMessages;
+  }
+
+  /**
+   * Format Chat Completion response to MessageContentBlocks
+   */
+  private formatChatCompletionResponse(
+    response: any,
+  ): MessageContentBlock[] {
+    const contentBlocks: MessageContentBlock[] = [];
+    const message = response.choices?.[0]?.message;
+
+    if (!message) {
+      return contentBlocks;
+    }
+
+    // Handle text content
+    if (message.content) {
+      contentBlocks.push({
+        type: MessageContentType.Text,
+        text: message.content,
+      } as TextContentBlock);
+    }
+
+    // Handle tool calls
+    if (message.tool_calls && message.tool_calls.length > 0) {
+      for (const toolCall of message.tool_calls) {
+        if (toolCall.type === 'function') {
+          let parsedInput = {};
+          try {
+            parsedInput = JSON.parse(toolCall.function.arguments || '{}');
+          } catch (e) {
+            this.logger.warn(
+              `Failed to parse tool call arguments: ${toolCall.function.arguments}`,
+            );
+            parsedInput = {};
+          }
+
+          contentBlocks.push({
+            type: MessageContentType.ToolUse,
+            id: toolCall.id,
+            name: toolCall.function.name,
+            input: parsedInput,
+          } as ToolUseContentBlock);
+        }
       }
     }
 
