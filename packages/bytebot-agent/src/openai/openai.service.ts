@@ -15,7 +15,7 @@ import {
 } from '@bytebot/shared';
 import { DEFAULT_MODEL } from './openai.constants';
 import { Message, Role } from '@prisma/client';
-import { openaiTools } from './openai.tools';
+import { openaiTools, chatCompletionTools } from './openai.tools';
 import {
   BytebotAgentService,
   BytebotAgentInterrupt,
@@ -103,7 +103,7 @@ export class OpenAIService implements BytebotAgentService {
             model,
             messages: chatMessages,
             max_tokens: 8192,
-            ...(useTools && { tools: openaiTools }),
+            ...(useTools && { tools: chatCompletionTools }),
           },
           { signal },
         );

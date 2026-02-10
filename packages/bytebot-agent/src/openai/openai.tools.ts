@@ -50,7 +50,19 @@ export const setTaskStatusTool = toolMap.setTaskStatusTool;
 export const createTaskTool = toolMap.createTaskTool;
 export const applicationTool = toolMap.applicationTool;
 
-// Array of all tools
+// Array of all tools for responses.create API
 export const openaiTools: OpenAI.Responses.FunctionTool[] = agentTools.map(
   agentToolToOpenAITool,
+);
+
+// Array of tools for chat.completions.create API (used by vLLM)
+export const chatCompletionTools: OpenAI.Chat.ChatCompletionTool[] = agentTools.map(
+  (tool) => ({
+    type: 'function' as const,
+    function: {
+      name: tool.name,
+      description: tool.description,
+      parameters: tool.input_schema,
+    },
+  }),
 );
