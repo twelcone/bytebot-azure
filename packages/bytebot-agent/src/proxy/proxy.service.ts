@@ -38,7 +38,6 @@ export class ProxyService implements BytebotAgentService {
 
     // Prefer vLLM if configured, otherwise use proxy
     const baseURL = vllmBaseUrl ? `${vllmBaseUrl}/v1` : proxyUrl;
-    const apiKey = vllmBaseUrl ? vllmApiKey : 'dummy-key-for-proxy';
 
     if (!baseURL) {
       this.logger.warn(
@@ -47,32 +46,29 @@ export class ProxyService implements BytebotAgentService {
     }
 
     // Initialize OpenAI client with proxy/vLLM configuration
-    this.openai = new OpenAI({
-      apiKey: apiKey || 'sk-no-key-required',  // OpenAI client requires some value
-      baseURL,
-      defaultHeaders: vllmBaseUrl && !apiKey ? {} : undefined,  // Don't send auth header for vLLM without key
-      fetch: vllmBaseUrl && !apiKey ? this.createFetchWithoutAuth() : undefined,
-    });
+    // For vLLM, handle special "EMPTY" value or use the provided key
+    if (vllmBaseUrl) {
+      // If API key is "EMPTY", use that as-is (some vLLM setups recognize this)
+      // Otherwise use the provided key or default to "EMPTY"
+      const apiKey = vllmApiKey === 'EMPTY' ? 'EMPTY' : (vllmApiKey || 'EMPTY');
+      this.openai = new OpenAI({
+        apiKey: apiKey,
+        baseURL,
+      });
+      this.logger.log(`ProxyService configured for vLLM at: ${vllmBaseUrl} (API key: ${apiKey ? 'configured' : 'none'})`);
+    } else {
+      this.openai = new OpenAI({
+        apiKey: 'dummy-key-for-proxy',
+        baseURL: proxyUrl,
+      });
+      this.logger.log(`ProxyService configured for LLM proxy at: ${proxyUrl}`);
+    }
 
     if (vllmBaseUrl) {
       this.logger.log(`ProxyService configured for vLLM at: ${vllmBaseUrl}`);
     } else if (proxyUrl) {
       this.logger.log(`ProxyService configured for LLM proxy at: ${proxyUrl}`);
     }
-  }
-
-  /**
-   * Create a custom fetch that strips Authorization header for vLLM without auth
-   */
-  private createFetchWithoutAuth() {
-    return async (url: RequestInfo, init?: RequestInit) => {
-      if (init?.headers) {
-        const headers = new Headers(init.headers as any);
-        headers.delete('Authorization');
-        init.headers = headers;
-      }
-      return fetch(url, init);
-    };
   }
 
   /**
