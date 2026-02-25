@@ -1,0 +1,20 @@
+# Requirements for PC-Eval Benchmark Scripts
+# Install with: pip install -r PCAgent-bench/requirements.txt
+
+# HTTP client for API calls to Bytebot agent
+requests>=2.31.0
+
+# Optional: For colored terminal output (if you want to add colors later)
+# colorama>=0.4.6
+
+# Optional: For progress bars (if you want to add visual progress)
+# tqdm>=4.66.0
+
+# Optional: For better table formatting in reports
+# tabulate>=0.9.0
+
+# Optional: For data analysis of benchmark results
+# pandas>=2.0.0
+# matplotlib>=3.7.0
+
+# Note: Python 3.7+ required for all scripts

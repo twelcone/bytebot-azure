@@ -28,14 +28,20 @@ def parse_pc_eval_tasks(file_path: str) -> dict:
     with open(file_path, 'r', encoding='utf-8') as f:
         content = f.read()
 
-    # Parse tasks using regex
-    pattern = r'(\d+)→"([^"]+)"'
-    matches = re.findall(pattern, content)
+    # Parse tasks - they are quoted strings separated by commas
+    # Remove trailing comma and newline if present
+    content = content.strip()
+    if content.endswith(','):
+        content = content[:-1]
 
-    for match in matches:
-        task_num = int(match[0])
-        task_desc = match[1]
-        tasks[task_num] = task_desc
+    # Split by pattern that matches '",\n"' (comma between quoted strings)
+    # This handles multi-line task descriptions
+    task_strings = re.findall(r'"([^"]+)"', content)
+
+    # Assign numbers starting from 1
+    for i, task_desc in enumerate(task_strings, start=1):
+        if task_desc.strip():  # Skip empty tasks
+            tasks[i] = task_desc.strip()
 
     return tasks
 
