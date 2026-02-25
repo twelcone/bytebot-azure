@@ -97,12 +97,14 @@ export class OpenAIService implements BytebotAgentService {
         // vLLM uses chat.completions API for better tool support
         const chatMessages = this.formatMessagesForChatCompletion(systemPrompt, messages);
 
+        // UI-TARS doesn't support tools properly, disable them for vLLM
         const response = await this.openai.chat.completions.create(
           {
             model,
             messages: chatMessages,
             max_tokens: 8192,
-            ...(useTools && { tools: chatCompletionTools }),
+            // Disable tools for vLLM as UI-TARS doesn't handle them well
+            // ...(useTools && { tools: chatCompletionTools }),
           },
           { signal },
         );
